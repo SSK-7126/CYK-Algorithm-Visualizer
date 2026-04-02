@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #010816;
+  --surface: #0f172a;
+  --primary: #6366f1;
+  --secondary: #10b981;
+  --accent: #f43f5e;
+  --border: #334155;
+  --glass: rgba(15, 23, 42, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--background);
+  color: #f1f5f9;
+  overflow-x: hidden;
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-surface/70 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl;
+  }
+}
+
+.triangle-table {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.table-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.table-cell {
+  @apply w-16 h-16 sm:w-20 sm:h-20 flex flex-col items-center justify-center border border-slate-700/50 rounded-lg transition-all duration-300 relative text-xs sm:text-sm font-medium;
+  background: var(--surface);
+}
+
+.table-cell.active {
+  @apply border-primary ring-2 ring-primary/50 bg-primary/10 scale-105 z-10;
+}
+
+.table-cell.completed {
+  @apply border-secondary/50 bg-secondary/5 shadow-[0_0_15px_rgba(16,185,129,0.1)];
+}
+
+.table-cell.source {
+  @apply border-accent/50 bg-accent/5 ring-1 ring-accent/30;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
