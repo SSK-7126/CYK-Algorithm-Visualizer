@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { ArrowRightLeft, PlayCircle, Sparkles, Type } from 'lucide-react';
 
-const EPSILON = 'ε';
+const EPSILON = '\u03B5';
 
 const EXAMPLES = [
   {
@@ -16,12 +16,12 @@ const EXAMPLES = [
   },
   {
     name: "Balanced",
-    grammar: "S -> SS | (S) | ε",
+    grammar: `S -> SS | (S) | ${EPSILON}`,
     string: "(())()"
   }
 ];
 
-const GRAMMAR_KEYS = ['ε', '->', '|', '(', ')'];
+const GRAMMAR_KEYS = [EPSILON, '->', '|', '(', ')'];
 const STRING_KEYS = ['(', ')'];
 
 const GrammarInput = ({ onVisualize }) => {
@@ -37,7 +37,10 @@ const GrammarInput = ({ onVisualize }) => {
       return;
     }
     setError("");
-    onVisualize(grammarText, testString);
+    const errorMsg = onVisualize(grammarText, testString);
+    if (errorMsg) {
+      setError(errorMsg);
+    }
   };
 
   const loadExample = (example) => {

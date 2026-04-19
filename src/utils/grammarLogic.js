@@ -2,8 +2,8 @@
  * Utility for parsing and converting CFG to CNF
  */
 
-const EPSILON_SYMBOL = 'ε';
-const EPSILON_ALIASES = new Set(['', 'ε', 'Îµ', 'ÃŽÂµ', 'epsilon', 'eps', 'epsion']);
+const EPSILON_SYMBOL = '\u03B5';
+const EPSILON_ALIASES = new Set(['', '\u03B5', '\u03b5', 'epsilon', 'eps', 'epsion']);
 
 function isEpsilonProduction(rhs) {
   if (typeof rhs !== 'string') return false;
@@ -16,28 +16,47 @@ function normalizeProduction(rhs) {
 }
 
 export const parseGrammar = (text) => {
-  const lines = text.split('\n').filter(l => l.trim() !== '');
+  if (!text || typeof text !== 'string') {
+    throw new Error('Grammar text is empty or invalid.');
+  }
+
+  // Normalize common arrow variants and whitespace issues from different OS line endings
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalized.split('\n').filter(l => l.trim() !== '');
   const rules = {};
   let start = null;
 
-  lines.forEach((line, index) => {
-    const parts = line.split('->').map(p => p.trim());
+  lines.forEach((line) => {
+    // Support both -> and → (unicode arrow)
+    const parts = line.split(/->|\u2192/).map(p => p.trim());
     if (parts.length !== 2) return;
 
-    const lhs = parts[0];
+    const lhs = parts[0].replace(/\s+/g, '');
+    if (!lhs) return;
+
     const rhsList = parts[1]
       .split('|')
       .map(r => normalizeProduction(r.trim()))
-      .filter(Boolean);
+      // keep epsilon symbol (\u03B5) and all non-empty productions; discard only blank entries
+      .filter(r => r.length > 0);
 
-    if (index === 0) start = lhs;
+    // First successfully-parsed rule's LHS is the start symbol
+    if (!start) start = lhs;
     rules[lhs] = [...(rules[lhs] || []), ...rhsList];
   });
+
+  if (!start || Object.keys(rules).length === 0) {
+    throw new Error('No valid grammar rules were parsed. Ensure the format is: S -> AB | a');
+  }
 
   return { start, rules };
 };
 
 export const convertToCNF = (originalGrammar) => {
+  if (!originalGrammar || !originalGrammar.rules || !originalGrammar.start) {
+    throw new Error('Invalid grammar object passed to CNF conversion.');
+  }
+
   const steps = [];
   const acceptsEmpty = canGenerateEmpty(originalGrammar);
 
@@ -54,7 +73,7 @@ export const convertToCNF = (originalGrammar) => {
   steps.push({
     title: "Step 1: Eliminate Epsilon",
     grammar: JSON.parse(JSON.stringify(currentGrammar)),
-    explanation: "Removing rules like A -> ε and replacing them in other rules."
+    explanation: "Removing rules like A -> \u03B5 and replacing them in other rules."
   });
 
   // Step 2: Eliminate Unit Productions
@@ -80,6 +99,10 @@ export const convertToCNF = (originalGrammar) => {
     grammar: JSON.parse(JSON.stringify(currentGrammar)),
     explanation: "Ensuring all rules are of the form A -> BC or A -> a."
   });
+
+  if (!currentGrammar.rules || Object.keys(currentGrammar.rules).length === 0) {
+    throw new Error('CNF conversion produced an empty grammar. The input grammar may have only useless symbols.');
+  }
 
   return { final: { ...currentGrammar, acceptsEmpty }, steps };
 };

@@ -36,9 +36,11 @@ const App = () => {
         const element = document.getElementById('analysis-grid');
         element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 120);
+
+      return null; // no error
     } catch (err) {
-      console.error(err);
-      alert("Error processing grammar. Please check the format.");
+      console.error('Grammar processing error:', err);
+      return err.message || "Error processing grammar. Please check the format.";
     }
   };
 

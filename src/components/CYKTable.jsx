@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const EPSILON = 'ε';
-const EMPTY_SET = '∅';
+const EPSILON = '\u03B5';
+const EMPTY_SET = '\u2205';
 
 const CYKTable = ({ string, table, currentStep }) => {
   if (!table || table.length === 0) return null;
