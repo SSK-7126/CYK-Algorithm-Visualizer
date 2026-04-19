@@ -248,46 +248,55 @@ function finalizeCNF(g) {
   const terminals = {};
   let varCount = 0;
 
-  // 1. Handle terminals in mixed rules or long rules
+  let rulesArr = {};
   Object.keys(rules).forEach(lhs => {
-    rules[lhs] = rules[lhs].map(rhs => {
+    rulesArr[lhs] = rules[lhs].map(rhs => {
       if (rhs.length > 1) {
         return rhs.split('').map(c => {
-          if (!rules[c]) {
+          if (!g.rules[c]) {
             if (!terminals[c]) {
-              const newVar = `T${c.toUpperCase()}`;
+              let newVar = `T${c.toUpperCase()}`;
+              while (g.rules[newVar] || rulesArr[newVar]) {
+                newVar += "1";
+              }
               terminals[c] = newVar;
-              rules[newVar] = [c];
+              rulesArr[newVar] = [[c]];
             }
             return terminals[c];
           }
           return c;
-        }).join('');
+        });
       }
-      return rhs;
+      return [rhs];
     });
   });
 
-  // 2. Break down long rules A -> BCD into A -> BX, X -> CD
-  let cnfRules = { ...rules };
   let done = false;
   while (!done) {
     done = true;
-    const currentVars = Object.keys(cnfRules);
+    const currentVars = Object.keys(rulesArr);
     currentVars.forEach(lhs => {
-      cnfRules[lhs] = cnfRules[lhs].map(rhs => {
-        if (rhs.length > 2) {
+      rulesArr[lhs] = rulesArr[lhs].map(rhsArr => {
+        if (rhsArr.length > 2) {
           done = false;
-          const first = rhs[0];
-          const rest = rhs.substring(1);
-          const newVar = `X${varCount++}`;
-          cnfRules[newVar] = [rest];
-          return first + newVar;
+          const first = rhsArr[0];
+          const rest = rhsArr.slice(1);
+          let newVar = `X${varCount++}`;
+          while (g.rules[newVar] || rulesArr[newVar]) {
+            newVar = `X${varCount++}`;
+          }
+          rulesArr[newVar] = [rest];
+          return [first, newVar];
         }
-        return rhs;
+        return rhsArr;
       });
     });
   }
 
-  return { ...g, rules: cnfRules };
+  const finalRules = {};
+  Object.keys(rulesArr).forEach(lhs => {
+    finalRules[lhs] = rulesArr[lhs].map(arr => arr.join(''));
+  });
+
+  return { ...g, rules: finalRules };
 }
