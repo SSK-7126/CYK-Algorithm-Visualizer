@@ -9,6 +9,30 @@ export const runCYK = (grammar, inputString) => {
   );
   const steps = [];
 
+  if (n === 0) {
+    const isAccepted = Boolean(grammar.acceptsEmpty);
+
+    steps.push({
+      type: 'EMPTY',
+      accepted: isAccepted,
+      startSymbol: grammar.start,
+      explanation: isAccepted
+        ? `The input string is ε. The grammar can derive ε, so the string is ACCEPTED.`
+        : `The input string is ε. The grammar cannot derive ε, so the string is REJECTED.`
+    });
+
+    steps.push({
+      type: 'FINAL',
+      accepted: isAccepted,
+      startSymbol: grammar.start,
+      explanation: isAccepted
+        ? `Start symbol '${grammar.start}' derives ε. String ACCEPTED!`
+        : `Start symbol '${grammar.start}' does not derive ε. String REJECTED.`
+    });
+
+    return { table, steps, accepted: isAccepted };
+  }
+
   // Step 1: Initialization (Base Row - Length 1)
   for (let i = 1; i <= n; i++) {
     const char = inputString[i - 1];

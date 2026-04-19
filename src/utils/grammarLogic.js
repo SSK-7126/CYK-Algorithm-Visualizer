@@ -2,6 +2,19 @@
  * Utility for parsing and converting CFG to CNF
  */
 
+const EPSILON_SYMBOL = 'ε';
+const EPSILON_ALIASES = new Set(['', 'ε', 'Îµ', 'ÃŽÂµ', 'epsilon', 'eps', 'epsion']);
+
+function isEpsilonProduction(rhs) {
+  if (typeof rhs !== 'string') return false;
+  return EPSILON_ALIASES.has(rhs.toLowerCase());
+}
+
+function normalizeProduction(rhs) {
+  const compact = rhs.replace(/\s+/g, '');
+  return isEpsilonProduction(compact) ? EPSILON_SYMBOL : compact;
+}
+
 export const parseGrammar = (text) => {
   const lines = text.split('\n').filter(l => l.trim() !== '');
   const rules = {};
@@ -12,7 +25,10 @@ export const parseGrammar = (text) => {
     if (parts.length !== 2) return;
 
     const lhs = parts[0];
-    const rhsList = parts[1].split('|').map(r => r.trim());
+    const rhsList = parts[1]
+      .split('|')
+      .map(r => normalizeProduction(r.trim()))
+      .filter(Boolean);
 
     if (index === 0) start = lhs;
     rules[lhs] = [...(rules[lhs] || []), ...rhsList];
@@ -23,7 +39,8 @@ export const parseGrammar = (text) => {
 
 export const convertToCNF = (originalGrammar) => {
   const steps = [];
-  
+  const acceptsEmpty = canGenerateEmpty(originalGrammar);
+
   // Step 0: Clone initial
   let currentGrammar = JSON.parse(JSON.stringify(originalGrammar));
   steps.push({
@@ -64,8 +81,32 @@ export const convertToCNF = (originalGrammar) => {
     explanation: "Ensuring all rules are of the form A -> BC or A -> a."
   });
 
-  return { final: currentGrammar, steps };
+  return { final: { ...currentGrammar, acceptsEmpty }, steps };
 };
+
+function canGenerateEmpty(g) {
+  const nullable = new Set();
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    Object.keys(g.rules).forEach(lhs => {
+      if (nullable.has(lhs)) return;
+
+      const hasNullableProduction = g.rules[lhs].some(rhs => {
+        if (isEpsilonProduction(rhs)) return true;
+        return rhs.split('').every(symbol => nullable.has(symbol));
+      });
+
+      if (hasNullableProduction) {
+        nullable.add(lhs);
+        changed = true;
+      }
+    });
+  }
+
+  return nullable.has(g.start);
+}
 
 function removeEpsilon(g) {
   const nullable = new Set();
@@ -73,9 +114,9 @@ function removeEpsilon(g) {
 
   // Pass 1: Find initially nullable
   Object.keys(rules).forEach(lhs => {
-    if (rules[lhs].includes('ε') || rules[lhs].includes('')) {
+    if (rules[lhs].some(isEpsilonProduction)) {
       nullable.add(lhs);
-      rules[lhs] = rules[lhs].filter(r => r !== 'ε' && r !== '');
+      rules[lhs] = rules[lhs].filter(rhs => !isEpsilonProduction(rhs));
     }
   });
 
@@ -115,9 +156,9 @@ function removeEpsilon(g) {
         newRhs.push(...combinations(0));
       }
     });
-    // Cleanup: remove duplicates and empty/epsilon unless it's the start symbol logic 
+    // Cleanup: remove duplicates and empty/epsilon unless it's the start symbol logic
     // (simplified for this app)
-    rules[lhs] = [...new Set(newRhs)].filter(r => r !== '');
+    rules[lhs] = [...new Set(newRhs)].filter(r => !isEpsilonProduction(r));
   });
 
   return { ...g, rules };
@@ -152,7 +193,7 @@ function removeUnit(g) {
 
 function removeUseless(g) {
   let rules = { ...g.rules };
-  
+
   // 1. Generating symbols
   const generating = new Set();
   let changed = true;
@@ -212,7 +253,7 @@ function finalizeCNF(g) {
     rules[lhs] = rules[lhs].map(rhs => {
       if (rhs.length > 1) {
         return rhs.split('').map(c => {
-          if (!rules[c]) { // it's a terminal
+          if (!rules[c]) {
             if (!terminals[c]) {
               const newVar = `T${c.toUpperCase()}`;
               terminals[c] = newVar;

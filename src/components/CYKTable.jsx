@@ -1,16 +1,27 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const EPSILON = 'ε';
+const EMPTY_SET = '∅';
+
 const CYKTable = ({ string, table, currentStep }) => {
   if (!table || table.length === 0) return null;
 
   const n = string.length;
+
+  if (n === 0) {
+    return (
+      <div className="table-shell table-shell--empty">
+        <div className="empty-orb">{EPSILON}</div>
+        <h3 className="text-2xl font-semibold">Empty string inspection</h3>
+        <p className="text-[color:var(--text-muted)] max-w-xl leading-7">
+          The input is being interpreted as epsilon, so acceptance depends on whether the start symbol can derive {EPSILON}.
+        </p>
+      </div>
+    );
+  }
+
   const rows = [];
-  
-  // Construct triangular display rows
-  // In our logic: table[len][start]
-  // Row 1 (base): len = 1, start = 1..n
-  // Row n (top): len = n, start = 1
   for (let l = 1; l <= n; l++) {
     const rowCells = [];
     for (let i = 1; i <= n - l + 1; i++) {
@@ -19,96 +30,68 @@ const CYKTable = ({ string, table, currentStep }) => {
     rows.push(rowCells);
   }
 
-  // Determine cell state based on current step
   const getCellState = (len, pos) => {
-    if (!currentStep) return 'normal';
-    
-    // If it's a final step, we just show the result
-    if (currentStep.type === 'FINAL') return 'normal';
-
-    // If it's the cell currently being filled
+    if (!currentStep || currentStep.type === 'FINAL') return 'normal';
     if (currentStep.row === len && currentStep.col === pos) return 'active';
 
-    // If it's one of the source cells
     if (currentStep.type === 'COMBINE') {
       if (currentStep.left.row === len && currentStep.left.col === pos) return 'source';
       if (currentStep.right.row === len && currentStep.right.col === pos) return 'source';
     }
 
-    // If the cell was already filled in previous steps
-    // (This is a simplified check for visualization)
     if (len < currentStep.row || (len === currentStep.row && pos < currentStep.col)) return 'completed';
-
     return 'normal';
   };
 
   return (
-    <div className="glass-panel p-8 overflow-x-auto min-h-[600px] flex flex-col items-center justify-center">
-      <div className="mb-12 flex gap-4">
-        {string.split('').map((char, i) => (
-          <div key={i} className="w-16 sm:w-20 text-center font-bold text-lg text-primary/80 border-b-2 border-primary/20 pb-2">
-            {char}
-            <span className="block text-[10px] text-slate-500 mt-1 uppercase font-semibold">idx {i + 1}</span>
+    <div className="table-shell">
+      <div className="string-ribbon">
+        {string.split('').map((char, index) => (
+          <div key={`${char}-${index}`} className="string-ribbon__cell">
+            <span>{char || EPSILON}</span>
+            <small>idx {index + 1}</small>
           </div>
         ))}
       </div>
 
-      <div className="flex flex-col-reverse gap-4">
-        {rows.map((row, rowIndex) => (
-          <div key={rowIndex} className="flex gap-4 justify-center">
-            {row.map((cell, cellIndex) => {
-              const state = getCellState(cell.len, cell.pos);
-              const vars = Array.from(table[cell.len][cell.pos]);
-              
-              return (
-                <motion.div
-                  key={`${cell.len}-${cell.pos}`}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ 
-                    opacity: 1, 
-                    scale: 1,
-                    y: state === 'active' ? -5 : 0
-                  }}
-                  className={`
-                    table-cell
-                    ${state === 'active' ? 'active' : ''}
-                    ${state === 'source' ? 'source border-accent border-2 bg-accent/10 shadow-[0_0_15px_rgba(244,63,94,0.3)]' : ''}
-                    ${state === 'completed' && vars.length > 0 ? 'completed border-secondary border-2' : ''}
-                  `}
-                >
-                  <div className="absolute top-1 left-1.5 text-[8px] text-slate-500 font-bold uppercase">
-                    T[{cell.len},{cell.pos}]
-                  </div>
+      <div className="triangle-matrix">
+        {rows
+          .slice()
+          .reverse()
+          .map((row) => (
+            <div key={`row-${row[0].len}`} className="triangle-matrix__row">
+              {row.map((cell) => {
+                const state = getCellState(cell.len, cell.pos);
+                const vars = Array.from(table[cell.len][cell.pos]);
 
-                  <AnimatePresence mode="popLayout">
-                    <div className="flex flex-wrap gap-1 items-center justify-center p-2">
-                      {vars.map((v) => (
-                        <motion.span
-                          key={v}
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="px-1.5 py-0.5 bg-primary/20 text-primary border border-primary/30 rounded text-[10px] font-bold"
-                        >
-                          {v}
-                        </motion.span>
-                      ))}
-                      {vars.length === 0 && (
-                        <span className="text-slate-700 font-bold">∅</span>
-                      )}
-                    </div>
-                  </AnimatePresence>
-
-                  {state === 'active' && (
-                    <motion.div 
-                      layoutId="active-glow"
-                      className="absolute inset-0 rounded-lg ring-4 ring-primary/40 animate-pulse-slow"
-                    />
-                  )}
-                </motion.div>
-              );
-            })}
+                return (
+                  <motion.div
+                    key={`${cell.len}-${cell.pos}`}
+                    initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: state === 'active' ? 1.03 : 1 }}
+                    className={`matrix-node matrix-node--${state}`}
+                  >
+                    <div className="matrix-node__meta">T[{cell.len},{cell.pos}]</div>
+                    <AnimatePresence mode="popLayout">
+                      <div className="matrix-node__tokens">
+                        {vars.map((value) => (
+                          <motion.span
+                            key={value}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="matrix-token"
+                          >
+                            {value}
+                          </motion.span>
+                        ))}
+                        {vars.length === 0 && <span className="matrix-empty">{EMPTY_SET}</span>}
+                      </div>
+                    </AnimatePresence>
+                  </motion.div>
+                );
+              })}
           </div>
-        ))}
+          ))}
       </div>
     </div>
   );
